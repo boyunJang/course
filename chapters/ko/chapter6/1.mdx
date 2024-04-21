@@ -1,19 +1,19 @@
-# Introduction[[introduction]]
+# 단원 소개[[introduction]]
 
 <CourseFloatingBanner
     chapter={6}
     classNames="absolute z-10 right-0 top-0"
 />
 
-In [Chapter 3](/course/chapter3), we looked at how to fine-tune a model on a given task. When we do that, we use the same tokenizer that the model was pretrained with -- but what do we do when we want to train a model from scratch? In these cases, using a tokenizer that was pretrained on a corpus from another domain or language is typically suboptimal. For example, a tokenizer that's trained on an English corpus will perform poorly on a corpus of Japanese texts because the use of spaces and punctuation is very different in the two languages.
+[Chapter 3](/course/chapter3)에서는 주어진 작업에 모델을 세밀하게 조정하는 방법을 살펴보았습니다. 이렇게 할 때, 모델이 사전 훈련된 것과 동일한 토크나이저를 사용합니다. 그러나 모델을 처음부터 훈련하려면 어떻게 해야 할까요? 이러한 경우에는 다른 도메인이나 언어의 말뭉치에서 사전 훈련된 토크나이저를 사용하는 것이 일반적으로 최적이 아닙니다. 예를 들어, 영어 말뭉치로 훈련된 토크나이저는 두 언어 간에 공백과 구두점 사용이 매우 다르기 때문에 일본어 텍스트 말뭉치에서 성능이 저하될 것입니다.
 
-In this chapter, you will learn how to train a brand new tokenizer on a corpus of texts, so it can then be used to pretrain a language model. This will all be done with the help of the [🤗 Tokenizers](https://github.com/huggingface/tokenizers) library, which provides the "fast" tokenizers in the [🤗 Transformers](https://github.com/huggingface/transformers) library. We'll take a close look at the features that this library provides, and explore how the fast tokenizers differ from the "slow" versions.
+이 장에서는 텍스트 말뭉치에서 새로운 토크나이저를 훈련하여 언어 모델을 사전 훈련할 수 있는 방법을 배우게 될 것입니다. 이 모든 것은 [🤗 Tokenizers](https://github.com/huggingface/tokenizers) 라이브러리의 도움을 받아 진행됩니다. 이 라이브러리는 [🤗 Transformers](https://github.com/huggingface/transformers) 라이브러리에서 "빠른" 토크나이저를 제공합니다. 이 라이브러리가 제공하는 기능을 자세히 살펴보고 빠른 토크나이저가 "느린" 버전과 어떻게 다른지 탐구할 것입니다.
 
-Topics we will cover include:
+다룰 주제는 다음과 같습니다:
 
-* How to train a new tokenizer similar to the one used by a given checkpoint on a new corpus of texts
-* The special features of fast tokenizers
-* The differences between the three main subword tokenization algorithms used in NLP today
-* How to build a tokenizer from scratch with the 🤗 Tokenizers library and train it on some data
+* 새로운 말뭉치에서 주어진 체크포인트와 유사한 새로운 토크나이저를 훈련하는 방법
+* 빠른 토크나이저의 특별한 기능
+* 현재 자연어 처리에서 사용되는 세 가지 주요 서브워드 토크나이제이션 알고리즘의 차이점
+* 🤗 Tokenizers 라이브러리를 사용하여 토크나이저를 처음부터 만들고 일부 데이터로 훈련하는 방법
 
-The techniques introduced in this chapter will prepare you for the section in [Chapter 7](/course/chapter7/6) where we look at creating a language model for Python source code. Let's start by looking at what it means to "train" a tokenizer in the first place.
+이 장에서 소개된 기술은 [Chapter 7](/course/chapter7/6)의 섹션에서 Python 소스 코드용 언어 모델을 만드는 부분에 대비할 것입니다. 먼저 토크나이저를 "훈련"하는 것이 무엇을 의미하는지 살펴보겠습니다.
