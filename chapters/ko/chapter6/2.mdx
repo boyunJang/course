@@ -1,4 +1,4 @@
-# Training a new tokenizer from an old one[[training-a-new-tokenizer-from-an-old-one]]
+# 기존 토크나이저로부터 새 토크나이저 학습하기[[training-a-new-tokenizer-from-an-old-one]]
 
 <CourseFloatingBanner chapter={6}
   classNames="absolute z-10 right-0 top-0"
@@ -7,30 +7,30 @@
     {label: "Aws Studio", value: "https://studiolab.sagemaker.aws/import/github/huggingface/notebooks/blob/master/course/en/chapter6/section2.ipynb"},
 ]} />
 
-If a language model is not available in the language you are interested in, or if your corpus is very different from the one your language model was trained on, you will most likely want to retrain the model from scratch using a tokenizer adapted to your data. That will require training a new tokenizer on your dataset. But what exactly does that mean? When we first looked at tokenizers in [Chapter 2](/course/chapter2), we saw that most Transformer models use a _subword tokenization algorithm_. To identify which subwords are of interest and occur most frequently in the corpus at hand, the tokenizer needs to take a hard look at all the texts in the corpus -- a process we call *training*. The exact rules that govern this training depend on the type of tokenizer used, and we'll go over the three main algorithms later in this chapter.
+원하는 언어로 사용 가능한 언어 모델이 없거나 귀하의 말뭉치가 귀하의 언어 모델이 훈련된 것과 매우 다른 경우, 아마도 귀하는 귀하의 데이터에 적합한 토크나이저를 사용하여 모델을 처음부터 다시 훈련하고 싶을 것입니다. 이는 귀하의 데이터셋에서 새로운 토크나이저를 훈련해야 함을 의미합니다. 그러나 이게 정확히 무엇을 의미하는 걸까요? [Chapter 2](/course/chapter2)에서 토크나이저를 처음 살펴볼 때 대부분의 Transformer 모델이 _서브워드 토큰화 알고리즘_을 사용한다는 것을 보았습니다. 관심 있는 서브워드를 식별하고 해당 말뭉치에서 가장 빈번하게 발생하는 서브워드를 확인하기 위해 토크나이저는 말뭉치의 모든 텍스트를 신중하게 살펴봐야 합니다. 이러한 과정을 *훈련*이라고 합니다. 이 훈련을 지배하는 정확한 규칙은 사용된 토크나이저 유형에 따라 다르며, 이 장의 후반부에서 세 가지 주요 알고리즘을 자세히 다룰 것입니다.
 
 <Youtube id="DJimQynXZsQ"/>
 
 <Tip warning={true}>
 
-⚠️ Training a tokenizer is not the same as training a model! Model training uses stochastic gradient descent to make the loss a little bit smaller for each batch. It's randomized by nature (meaning you have to set some seeds to get the same results when doing the same training twice). Training a tokenizer is a statistical process that tries to identify which subwords are the best to pick for a given corpus, and the exact rules used to pick them depend on the tokenization algorithm. It's deterministic, meaning you always get the same results when training with the same algorithm on the same corpus.
+⚠️ 토크나이저를 훈련하는 것은 모델을 훈련하는 것과 같지 않습니다! 모델 훈련은 확률적 경사 하강법을 사용하여 각 배치마다 손실을 조금씩 줄입니다. 이는 본질적으로 무작위성을 가지며 (동일한 훈련을 두 번 실행할 때 동일한 결과를 얻으려면 일부 시드를 설정해야 함) 토크나이저 훈련은 주어진 말뭉치에서 어떤 서브워드를 선택해야 하는지 식별하기 위한 통계적 과정입니다. 사용된 정확한 규칙은 토큰화 알고리즘에 따라 달라집니다. 이는 결정적이며, 동일한 알고리즘과 말뭉치에서 훈련할 때 항상 동일한 결과를 얻습니다.
 
 </Tip>
 
-## Assembling a corpus[[assembling-a-corpus]]
+## 말뭉치 조합[[말뭉치 조합]]
 
-There's a very simple API in 🤗 Transformers that you can use to train a new tokenizer with the same characteristics as an existing one: `AutoTokenizer.train_new_from_iterator()`. To see this in action, let’s say we want to train GPT-2 from scratch, but in a language other than English. Our first task will be to gather lots of data in that language in a training corpus. To provide examples everyone will be able to understand, we won't use a language like Russian or Chinese here, but rather a specialized English language: Python code.
+🤗 Transformers에는 기존 특성과 유사한 새로운 토크나이저를 훈련하는 매우 간단한 API가 있습니다: `AutoTokenizer.train_new_from_iterator()` 이를 실제로 보려면, 예를 들어 GPT-2를 처음부터 영어 이외의 다른 언어로 훈련하고 싶다고 가정해 보겠습니다. 첫 번째 작업은 해당 언어의 훈련 말뭉치에서 많은 데이터를 수집하는 것입니다. 모두가 이해할 수 있는 예제를 제공하기 위해, 여기서는 러시아어나 중국어와 같은 언어를 사용하지 않고 특수화된 영어 언어인 Python 코드를 사용할 것입니다.
 
-The [🤗 Datasets](https://github.com/huggingface/datasets) library can help us assemble a corpus of Python source code. We'll use the usual `load_dataset()` function to download and cache the [CodeSearchNet](https://huggingface.co/datasets/code_search_net) dataset. This dataset was created for the [CodeSearchNet challenge](https://wandb.ai/github/CodeSearchNet/benchmark) and contains millions of functions from open source libraries on GitHub in several programming languages. Here, we will load the Python part of this dataset:
+[🤗 Datasets](https://github.com/huggingface/datasets) 라이브러리를 사용하여 Python 소스 코드의 말뭉치를 조합할 수 있습니다. 우리는 [CodeSearchNet](https://huggingface.co/datasets/code_search_net) 데이터셋을 다운로드하고 캐시에 저장하기 위해 일반적인 `load_dataset()` 함수를 사용할 것입니다. 이 데이터셋은 [CodeSearchNet 챌린지](https://wandb.ai/github/CodeSearchNet/benchmark)를 위해 만들어졌으며 GitHub의 여러 프로그래밍 언어에 대한 공개 라이브러리의 수백만 개 함수를 포함하고 있습니다. 여기서는 이 데이터셋의 Python 부분을 로드할 것입니다:
 
 ```py
 from datasets import load_dataset
 
-# This can take a few minutes to load, so grab a coffee or tea while you wait!
+# 이 작업은 로드하는 데 몇 분 정도 걸릴 수 있으므로 기다리는 동안 커피나 차를 마시세요!
 raw_datasets = load_dataset("code_search_net", "python")
 ```
 
-We can have a look at the training split to see which columns we have access to:
+훈련 분할을 살펴보면 액세스할 수 있는 열이 어떤 것인지 알 수 있습니다:
 
 ```py
 raw_datasets["train"]
@@ -46,39 +46,39 @@ Dataset({
 })
 ```
 
-We can see the dataset separates docstrings from code and suggests a tokenization of both. Here. we'll just use the `whole_func_string` column to train our tokenizer. We can look at an example of one these functions by indexing into the `train` split:
+데이터셋은 문서 문자열을 코드에서 분리하고 둘 다 토큰화를 제안합니다. 여기서는 토크나이저를 훈련하기 위해 `whole_func_string` 열만 사용할 것입니다. `train` 분할에 인덱싱하여 이러한 함수 중 하나의 예제를 살펴볼 수 있습니다:
 
 ```py
 print(raw_datasets["train"][123456]["whole_func_string"])
 ```
 
-which should print the following:
+아래 내용이 출력되어야 합니다:
 
 ```out
 def handle_simple_responses(
       self, timeout_ms=None, info_cb=DEFAULT_MESSAGE_CALLBACK):
-    """Accepts normal responses from the device.
+    """장치로부터 일반 응답을 수락합니다.
 
     Args:
-      timeout_ms: Timeout in milliseconds to wait for each response.
-      info_cb: Optional callback for text sent from the bootloader.
+      timeout_ms: 각 응답을 기다리는 시간 초과(ms)입니다.
+      info_cb: 부트로더에서 보낸 텍스트에 대한 선택적 콜백입니다.
 
     Returns:
-      OKAY packet's message.
+      OKAY 패킷의 메시지.
     """
     return self._accept_responses('OKAY', info_cb, timeout_ms=timeout_ms)
 ```
 
-The first thing we need to do is transform the dataset into an _iterator_ of lists of texts -- for instance, a list of list of texts. Using lists of texts will enable our tokenizer to go faster (training on batches of texts instead of processing individual texts one by one), and it should be an iterator if we want to avoid having everything in memory at once. If your corpus is huge, you will want to take advantage of the fact that 🤗 Datasets does not load everything into RAM but stores the elements of the dataset on disk. 
+첫 번째로 해야 할 일은 데이터셋을 텍스트 리스트의 _반복자_로 변환하는 것입니다. 예를 들어, 텍스트 리스트의 리스트로 변환하는 것입니다. 텍스트 리스트를 사용하면 토크나이저가 빠르게 진행될 수 있습니다 (텍스트를 하나씩 처리하는 대신 텍스트 배치로 훈련) 및 한 번에 모든 것을 메모리에 로드하지 않도록 하려면 반복자여야 합니다. 말뭉치가 거대한 경우, 🤗 Datasets가 모든 것을 RAM에 로드하지 않고 데이터셋의 요소를 디스크에 저장하기 때문에 이를 활용하고 싶을 것입니다.
 
-Doing the following would create a list of lists of 1,000 texts each, but would load everything in memory:
+다음은 각각 1,000개의 텍스트로 구성된 텍스트 리스트의 리스트를 만들지만 모든 것을 메모리에 로드합니다:
 
 ```py
-# Don't uncomment the following line unless your dataset is small!
+# 데이터셋이 작은 경우를 제외하고는 아래 줄을 주석 처리하지 마세요!
 # training_corpus = [raw_datasets["train"][i: i + 1000]["whole_func_string"] for i in range(0, len(raw_datasets["train"]), 1000)]
 ```
 
-Using a Python generator, we can avoid Python loading anything into memory until it's actually necessary. To create such a generator, you just to need to replace the brackets with parentheses:
+파이썬 생성기를 사용하면 파이썬이 실제로 필요할 때까지 아무 것도 메모리에 로드하지 않을 수 있습니다. 이러한 생성기를 생성하려면 대괄호를 괄호로 바꾸기만 하면 됩니다:
 
 ```py
 training_corpus = (
@@ -87,9 +87,9 @@ training_corpus = (
 )
 ```
 
-This line of code doesn't fetch any elements of the dataset; it just creates an object you can use in a Python `for` loop. The texts will only be loaded when you need them (that is, when you're at the step of the `for` loop that requires them), and only 1,000 texts at a time will be loaded. This way you won't exhaust all your memory even if you are processing a huge dataset.
+이 코드 라인은 데이터셋의 요소를 가져오지 않고, 단지 Python `for` 루프에서 사용할 수 있는 객체를 생성합니다. 텍스트는 필요할 때만 로드되며 (즉, 필요한 단계의 `for` 루프에 있을 때) 한 번에 1,000개의 텍스트만 로드됩니다. 이렇게하면 거대한 데이터셋을 처리하더라도 메모리를 고갈시키지 않습니다.
 
-The problem with a generator object is that it can only be used once. So, instead of this giving us the list of the first 10 digits twice:
+생성기 객체의 문제점은 한 번만 사용할 수 있다는 것입니다. 따라서 첫 10개의 숫자 리스트를 두 번씩 제공하는 대신에 한 번 제공한 후에는 빈 리스트를 제공합니다:
 
 ```py
 gen = (i for i in range(10))
@@ -104,7 +104,7 @@ we get them once and then an empty list:
 []
 ```
 
-That's why we define a function that returns a generator instead:
+그래서 우리는 대신 생성기를 반환하는 함수를 정의합니다:
 
 ```py
 def get_training_corpus():
@@ -117,7 +117,7 @@ def get_training_corpus():
 training_corpus = get_training_corpus()
 ```
 
-You can also define your generator inside a `for` loop by using the `yield` statement:
+또한 `yield` 문을 사용하여 `for` 루프 내에서 생성기를 정의할 수 있습니다:
 
 ```py
 def get_training_corpus():
@@ -127,11 +127,11 @@ def get_training_corpus():
         yield samples["whole_func_string"]
 ```
 
-which will produce the exact same generator as before, but allows you to use more complex logic than you can in a list comprehension.
+이전과 정확히 동일한 생성기를 생성하지만 리스트 내포보다 더 복잡한 로직을 사용할 수 있습니다.
 
-## Training a new tokenizer[[training-a-new-tokenizer]]
+## 새로운 토크나이저 훈련하기[[training-a-new-tokenizer]]
 
-Now that we have our corpus in the form of an iterator of batches of texts, we are ready to train a new tokenizer. To do this, we first need to load the tokenizer we want to pair with our model (here, GPT-2):
+이제 우리가 텍스트 배치의 반복자 형태로 말뭉치를 가지고 있으므로 새로운 토크나이저를 훈련할 준비가 되었습니다. 이를 위해서는 먼저 모델과 짝을 이룰 토크나이저를 로드해야 합니다 (여기서는 GPT-2):
 
 ```py
 from transformers import AutoTokenizer
@@ -139,9 +139,9 @@ from transformers import AutoTokenizer
 old_tokenizer = AutoTokenizer.from_pretrained("gpt2")
 ```
 
-Even though we are going to train a new tokenizer, it's a good idea to do this to avoid starting entirely from scratch. This way, we won't have to specify anything about the tokenization algorithm or the special tokens we want to use; our new tokenizer will be exactly the same as GPT-2, and the only thing that will change is the vocabulary, which will be determined by the training on our corpus.
+새로운 토크나이저를 훈련할 것이지만, 처음부터 시작하는 것을 피하려면 이것을 하는 것이 좋습니다. 이렇게 하면 토크나이제이션 알고리즘이나 사용할 특수 토큰에 대해 아무것도 지정할 필요가 없으며, 새로운 토크나이저는 GPT-2와 완전히 동일할 것이며 유일하게 변경되는 것은 말뭉치에서의 훈련에 의해 결정되는 어휘입니다.
 
-First let's have a look at how this tokenizer would treat an example function:
+먼저 이 토크나이저가 예제 함수를 어떻게 처리하는지 살펴보겠습니다:
 
 ```py
 example = '''def add_numbers(a, b):
@@ -157,21 +157,21 @@ tokens
  'Ġnumbers', 'Ġ`', 'a', '`', 'Ġand', 'Ġ`', 'b', '`', '."', '""', 'Ċ', 'Ġ', 'Ġ', 'Ġ', 'Ġreturn', 'Ġa', 'Ġ+', 'Ġb']
 ```
 
-This tokenizer has a few special symbols, like `Ġ` and `Ċ`, which denote spaces and newlines, respectively. As we can see, this is not too efficient: the tokenizer returns individual tokens for each space, when it could group together indentation levels (since having sets of four or eight spaces is going to be very common in code). It also split the function name a bit weirdly, not being used to seeing words with the `_` character.
+이 토크나이저에는 `Ġ`와 `Ċ`와 같은 몇 가지 특별한 기호가 있으며, 각각 공백과 줄바꿈을 나타냅니다. 보면, 이것은 너무 효율적이지 않습니다: 토크나이저는 각 공백에 대해 개별 토큰을 반환하는데, 코드에서 네 개 또는 여덟 개의 공백 세트가 매우 흔할 것이므로 이것들을 그룹화 할 수 있었을 것입니다. 또한 함수 이름을 약간 이상하게 분리했는데, `_` 문자가 포함된 단어를 볼 때 익숙하지 않기 때문입니다.
 
-Let's train a new tokenizer and see if it solves those issues. For this, we'll use the method `train_new_from_iterator()`:
+이제 새로운 토크나이저를 훈련하고 이러한 문제들을 해결할 수 있는지 살펴보겠습니다. 이를 위해 `train_new_from_iterator()` 메소드를 사용하겠습니다:
 
 ```py
 tokenizer = old_tokenizer.train_new_from_iterator(training_corpus, 52000)
 ```
 
-This command might take a bit of time if your corpus is very large, but for this dataset of 1.6 GB of texts it's  blazing fast (1 minute 16 seconds on an AMD Ryzen 9 3900X CPU with 12 cores).
+이 명령은 데이터셋이 매우 큰 경우 시간이 오래 걸릴 수 있지만, 이 1.6GB의 텍스트 데이터셋에 대해서는 엄청나게 빠릅니다 (AMD Ryzen 9 3900X CPU의 12 코어에서 1분 16초).
 
-Note that `AutoTokenizer.train_new_from_iterator()` only works if the tokenizer you are using is a "fast" tokenizer. As you'll see in the next section, the 🤗 Transformers library contains two types of tokenizers: some are written purely in Python and others (the fast ones) are backed by the 🤗 Tokenizers library, which is written in the [Rust](https://www.rust-lang.org) programming language. Python is the language most often used for data science and deep learning applications, but when anything needs to be parallelized to be fast, it has to be written in another language. For instance, the matrix multiplications that are at the core of the model computation are written in CUDA, an optimized C library for GPUs.
+`AutoTokenizer.train_new_from_iterator()`은 사용 중인 토크나이저가 "빠른" 토크나이저인 경우에만 작동합니다. 다음 섹션에서 보겠지만, 🤗 Transformers 라이브러리에는 두 종류의 토크나이저가 있습니다: 순수 파이썬으로 작성된 것과 (빠른 것) 러스트 프로그래밍 언어로 작성된 🤗 Tokenizers 라이브러리를 지원하는 것입니다. 파이썬은 주로 데이터 과학 및 딥 러닝 응용 프로그램에 사용되는 언어이지만, 빠르게 처리하기 위해 병렬화해야 하는 경우 다른 언어로 작성해야 합니다. 예를 들어, 모델 계산의 핵심인 행렬 곱셈은 GPU에 대한 최적화된 C 라이브러리 인 CUDA로 작성됩니다.
 
-Training a brand new tokenizer in pure Python would be excruciatingly slow, which is why we developed the 🤗 Tokenizers library. Note that just as you didn't have to learn the CUDA language to be able to execute your model on a batch of inputs on a GPU, you won't need to learn Rust to use a fast tokenizer. The 🤗 Tokenizers library provides Python bindings for many methods that internally call some piece of code in Rust; for example, to parallelize the training of your new tokenizer or, as we saw in [Chapter 3](/course/chapter3), the tokenization of a batch of inputs.
+순수 파이썬에서 완전히 새로운 토크나이저를 훈련하는 것은 극도로 느릴 것입니다. 이것이 🤗 Tokenizers 라이브러리를 개발한 이유입니다. CUDA 언어를 배우지 않고도 GPU에서 일괄 입력을 실행할 수 있는 것과 마찬가지로, 빠른 토크나이저를 사용하려면 Rust를 배울 필요가 없습니다. 🤗 Tokenizers 라이브러리는 내부적으로 일부 러스트 코드를 호출하는 많은 메소드에 대한 Python 바인딩을 제공합니다. 예를 들어, 새로운 토크나이저의 훈련이나 [Chapter 3](/course/chapter3)에서 본 것처럼 입력의 일괄 처리의 토크나이제이션을 병렬화하기 위해 사용됩니다.
 
-Most of the Transformer models have a fast tokenizer available (there are some exceptions that you can check [here](https://huggingface.co/transformers/#supported-frameworks)), and the `AutoTokenizer` API always selects the fast tokenizer for you if it's available. In the next section we'll take a look at some of the other special features fast tokenizers have, which will be really useful for tasks like token classification and question answering. Before diving into that, however, let's try our brand new tokenizer on the previous example:
+대부분의 Transformer 모델은 빠른 토크나이저가 있습니다 (확인할 수 있는 예외가 있습니다. [여기](https://huggingface.co/transformers/#supported-frameworks)에서 확인할 수 있습니다.) 그리고 사용 가능한 경우 `AutoTokenizer` API는 항상 빠른 토크나이저를 선택합니다. 다음 섹션에서는 빠른 토크나이저가 가지고 있는 일부 다른 특수 기능을 살펴보겠습니다. 이러한 특수 기능은 토큰 분류 및 질문 응답과 같은 작업에 매우 유용할 것입니다. 그러나 그 전에 우리의 새로운 토크나이저를 이전 예제에서 적용해 보겠습니다:
 
 ```py
 tokens = tokenizer.tokenize(example)
@@ -183,7 +183,7 @@ tokens
  'a', '`', 'Ġand', 'Ġ`', 'b', '`."""', 'ĊĠĠĠ', 'Ġreturn', 'Ġa', 'Ġ+', 'Ġb']
 ```
 
-Here we again see the special symbols `Ġ` and `Ċ` that denote spaces and newlines, but we can also see that our tokenizer learned some tokens that are highly specific to a corpus of Python functions: for example, there is a `ĊĠĠĠ` token that represents an indentation, and a `Ġ"""` token that represents the three quotes that start a docstring. The tokenizer also correctly split the function name on `_`. This is quite a compact representation; comparatively, using the plain English tokenizer on the same example will give us a longer sentence:
+여기에서 다시 공백과 줄바꿈을 나타내는 특별한 기호 `Ġ`와 `Ċ`를 볼 수 있지만, 우리는 Python 함수 말뭉치에 특화된 일부 토큰도 배울 수 있습니다. 예를 들어, 들여쓰기를 나타내는 `ĊĠĠĠ` 토큰과 독스트링을 시작하는 세 개의 따옴표를 나타내는 `Ġ"""` 토큰이 있습니다. 또한 토크나이저는 `_`를 분리하고 함수 이름을 올바르게 분리했습니다. 이는 상당히 간결한 표현입니다. 비교적, 동일한 예제에 일반 영어 토크나이저를 사용하면 더 긴 문장이 생성됩니다:
 
 ```py
 print(len(tokens))
@@ -195,7 +195,7 @@ print(len(old_tokenizer.tokenize(example)))
 36
 ```
 
-Let's look at another example:
+다른 예제를 살펴보겠습니다:
 
 ```python
 example = """class LinearLayer():
@@ -217,17 +217,17 @@ tokenizer.tokenize(example)
  'Ġreturn', 'Ġx', 'Ġ@', 'Ġself', '.', 'weights', 'Ġ+', 'Ġself', '.', 'bias', 'ĊĠĠĠĠ']
 ```
 
-In addition to the token corresponding to an indentation, here we can also see a token for a double indentation: `ĊĠĠĠĠĠĠĠ`. The special Python words like `class`, `init`, `call`, `self`, and `return` are each tokenized as one token, and we can see that as well as splitting on `_` and `.` the tokenizer correctly splits even camel-cased names: `LinearLayer` is tokenized as `["ĠLinear", "Layer"]`.
+여기에서 들여쓰기에 해당하는 토큰에 추가로 두 번의 들여쓰기를 나타내는 토큰인 `ĊĠĠĠĠĠĠĠ`를 볼 수 있습니다. `class`, `init`, `call`, `self`, `return`과 같은 특수 Python 단어는 각각 하나의 토큰으로 토크나이즈되며, `_`와 `.`을 분리하는 것뿐만 아니라 camel-cased 이름도 올바르게 분리합니다: `LinearLayer`는 `["ĠLinear", "Layer"]`로 토크나이즈됩니다.
 
-## Saving the tokenizer[[saving-the-tokenizer]]
+## 토크나이저 저장하기[[saving-the-tokenizer]]
 
-To make sure we can use it later, we need to save our new tokenizer. Like for models, this is done with the `save_pretrained()` method:
+나중에 사용할 수 있도록 새로운 토크나이저를 저장해야 합니다. 모델과 마찬가지로, 이 작업은 `save_pretrained()` 메소드로 수행됩니다:
 
 ```py
 tokenizer.save_pretrained("code-search-net-tokenizer")
 ```
 
-This will create a new folder named *code-search-net-tokenizer*, which will contain all the files the tokenizer needs to be reloaded. If you want to share this tokenizer with your colleagues and friends, you can upload it to the Hub by logging into your account. If you're working in a notebook, there's a convenience function to help you with this:
+이 명령은 *code-search-net-tokenizer*라는 새 폴더를 생성하고, 토크나이저가 다시 로드되기 위해 필요한 모든 파일이 포함됩니다. 이 토크나이저를 동료나 친구들과 공유하려면 계정에 로그인하여 허브에 업로드할 수 있습니다. 노트북에서 작업 중인 경우 이 작업을 돕는 편리한 기능이 있습니다:
 
 ```python
 from huggingface_hub import notebook_login
@@ -235,23 +235,23 @@ from huggingface_hub import notebook_login
 notebook_login()
 ```
 
-This will display a widget where you can enter your Hugging Face login credentials. If you aren't working in a notebook, just type the following line in your terminal:
+이것은 Hugging Face 로그인 자격 증명을 입력할 수 있는 위젯을 표시합니다. 노트북에서 작업 중이 아닌 경우 터미널에서 다음 줄을 입력하십시오:
 
 ```bash
 huggingface-cli login
 ```
 
-Once you've logged in, you can push your tokenizer by executing the following command:
+로그인한 후에 다음 명령을 실행하여 토크나이저를 푸시할 수 있습니다:
 
 ```py
 tokenizer.push_to_hub("code-search-net-tokenizer")
 ```
 
-This will create a new repository in your namespace with the name `code-search-net-tokenizer`, containing the tokenizer file. You can then load the tokenizer from anywhere with the `from_pretrained()` method:
+이 명령은 토크나이저 파일을 포함한 `code-search-net-tokenizer`라는 이름의 새 리포지토리를 네임스페이스에 생성합니다. 그런 다음 `from_pretrained()` 메소드를 사용하여 어디서든 토크나이저를 로드할 수 있습니다:
 
 ```py
 # Replace "huggingface-course" below with your actual namespace to use your own tokenizer
 tokenizer = AutoTokenizer.from_pretrained("huggingface-course/code-search-net-tokenizer")
 ```
 
-You're now all set for training a language model from scratch and fine-tuning it on your task at hand! We'll get to that in [Chapter 7](/course/chapter7), but first, in the rest of this chapter we'll take a closer look at fast tokenizers and explore in detail what actually happens when we call the method `train_new_from_iterator()`.
+이제 모델을 처음부터 훈련하고 현재 작업에 대해 모델을 세밀하게 조정할 준비가 되었습니다! [Chapter 7](/course/chapter7)에서 이를 수행할 것입니다. 그러나 먼저 이 장의 나머지 부분에서 빠른 토크나이저를 더 자세히 살펴보고 `train_new_from_iterator()` 메소드를 호출할 때 실제로 무엇이 발생하는지 자세히 살펴보겠습니다.
